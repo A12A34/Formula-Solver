@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formula Solver</title>
+    <link rel="stylesheet" href="/style.css">
+    <script defer src="/script.js"></script>
+</head>
+<body>
+    <div class="app">
+        <div class="header">
+            <h1>Formula Solver</h1>
+        </div>
+
+        <div class="formula_div" role="region" aria-labelledby="title">
+            <div class="select_formula">
+                <div class="label_inbut">
+                    <label for="formula_type">Category</label>
+                    <select id="formula_type" aria-label="Formula category"></select>
+                </div>
+                <div class="label_inbut">
+                    <label for="formula_name">Formula</label>
+                    <select id="formula_name" aria-label="Formula name"></select>
+                </div>
+                <div class="controls">
+                    <button id="load_formula" class="btn">Load</button>
+                    <button id="clear" class="btn secondary">Clear</button>
+                </div>
+            </div>
+
+            <div id="params" class="select_formula" aria-live="polite"></div>
+
+            <div id="answer-display" class="result">Result will appear here</div>
+        </div>
+    </div>
+</body>
+</html>

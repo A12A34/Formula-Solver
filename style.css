@@ -1,0 +1,155 @@
+:root{
+    --bg-1: #6c63ff;
+    --bg-2: #a6a4ff;
+    --card: #ffffff;
+    --muted: #6b6b8a;
+    --accent: #ff8a65;
+    --glass: rgba(255,255,255,0.12);
+}
+
+*{box-sizing: border-box;}
+
+body{
+    font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    margin: 0;
+    padding: 24px 16px;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: linear-gradient(135deg,var(--bg-1) 0%, var(--bg-2) 100%);
+    color: #1b1b2f;
+}
+
+.app {
+    width: 100%;
+    max-width: 980px;
+}
+
+.header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom: 18px;
+}
+
+h1{
+    margin:0;
+    font-size: 1.4rem;
+    color: white;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+
+.formula_div{
+    width: 100%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.86));
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 30px rgba(15,15,40,0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.select_formula{
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.label_inbut{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 180px;
+    flex: 1 1 220px;
+}
+
+label{
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+input[type="text"], input[type="number"], select, textarea{
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(27,27,47,0.06);
+    background: rgba(255,255,255,0.98);
+    font-size: 0.95rem;
+    color: #111;
+    outline: none;
+    transition: box-shadow .18s ease, transform .12s ease;
+}
+
+input:focus, select:focus, textarea:focus{
+    box-shadow: 0 6px 18px rgba(108,99,255,0.12);
+    transform: translateY(-1px);
+}
+
+.controls{
+    display:flex;
+    gap:12px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+.btn{
+    background: linear-gradient(180deg,var(--bg-1), var(--bg-2));
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 6px 18px rgba(108,99,255,0.18);
+    transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+
+.btn.secondary{
+    background: transparent;
+    border: 1px solid rgba(27,27,47,0.08);
+    color: #2b2b42;
+    box-shadow: none;
+}
+
+.btn:active{ transform: translateY(1px) scale(.998); }
+.btn:disabled{ opacity: .6; cursor: not-allowed; }
+
+.result{
+    background: rgba(0,0,0,0.03);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 1.05rem;
+    color: #111;
+    min-height: 42px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.muted{
+    color: var(--muted);
+    font-size: .9rem;
+}
+
+@media (max-width:640px){
+    body{ padding:16px 12px; }
+    h1{ font-size:1.1rem }
+    .label_inbut{ min-width: 140px; flex: 1 1 100%; }
+    .controls{ width: 100%; }
+}
+
+@media (min-width:1200px){
+    .app{ max-width: 1180px; }
+}
+
+/* small decorative touch for inputs inside select_formula */
+.select_formula > .label_inbut:first-child{ margin-left:0; }
+
+/* keep legacy class spelling support (typo-safe) */
+.label_input{ display: inline-block; }
