@@ -15,6 +15,7 @@ body{
     padding: 24px 16px;
     min-height: 100vh;
     display: flex;
+    flex-flow: row wrap;
     justify-content: center;
     align-items: flex-start;
     background: linear-gradient(135deg,var(--bg-1) 0%, var(--bg-2) 100%);
@@ -96,6 +97,8 @@ input:focus, select:focus, textarea:focus{
     gap:12px;
     align-items:center;
     flex-wrap:wrap;
+    justify-content: center;
+    padding-top: 25px;
 }
 
 .btn{
@@ -130,6 +133,7 @@ input:focus, select:focus, textarea:focus{
     display:flex;
     align-items:center;
     gap:8px;
+    white-space: pre-wrap;
 }
 
 .muted{
@@ -153,3 +157,87 @@ input:focus, select:focus, textarea:focus{
 
 /* keep legacy class spelling support (typo-safe) */
 .label_input{ display: inline-block; }
+
+/* Calculator styles — harmonized with the app theme */
+.calc {
+    margin: 45px 0 0 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+    border: 1px solid rgba(27,27,47,0.06);
+    border-radius: 12px;
+    padding: 14px;
+    width: max-content;
+    min-height: 320px;
+    box-shadow: 0 8px 30px rgba(15,15,40,0.12);
+}
+.calc:hover{
+    box-shadow: 0 12px 40px rgba(15,15,40,0.18);
+}
+
+.display {
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 12px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    background: linear-gradient(90deg, rgba(0,0,0,0.18), rgba(0,0,0,0.08));
+    color: #fff;
+    font-size: 20px;
+    text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.display:hover{
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+
+.display p{ margin:0; padding:0; }
+.display p:hover{ cursor: text; }
+
+button {
+    font-size: 18px;
+    border: none;
+    border-radius: 8px;
+    background-color: rgba(255,255,255,0.96);
+    color: #222;
+    padding: 12px 0;
+    cursor: pointer;
+    transition: background 0.12s, transform 0.08s, box-shadow 0.12s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+button:hover { transform: translateY(-2px); }
+button:active { transform: translateY(0); }
+.operator{
+    background: linear-gradient(180deg,var(--accent), #ff6f3d);
+    color: white;
+}
+.operator:hover{ opacity: .95; }
+.operator:active{ opacity: .9; }
+
+/* result display */
+#result{
+    padding: 6px 10px;
+    background: transparent;
+    color: #fff;
+    font-weight: 600;
+}
+#result::before{
+    content: "=";
+    margin-right: 6px;
+    color: rgba(255,255,255,0.7);
+}
+
+
+#calc_buttons{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-gap: 10px;
+    width: 100%;
+}

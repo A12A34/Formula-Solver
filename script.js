@@ -1008,6 +1008,61 @@ document.addEventListener('DOMContentLoaded', ()=>{
         return {mantissa: mStr, exponent: exponent, str: `${mStr} × 10^${exponent}`};
     }
 
+    // safe evaluator for expressions including common math functions and constants
+    // Supported: + - * / ** ^ ( ) numbers, e/E, and functions: sin, cos, tan, asin, acos, atan, sqrt, ln, log, exp, abs
+    // Constants: pi, e
+    // Trig functions respect `degreeMode` (if true, inputs are degrees and outputs of inverse funcs are degrees)
+    function safeEvalExpression(expr){
+        if(expr === undefined || expr === null) return undefined;
+        let s = String(expr).trim();
+        if(s === '') return undefined;
+        // normalize common symbols
+        s = s.replace(/π/g, 'pi');
+        s = s.replace(/\^/g, '**');
+
+        // identify identifiers and ensure they are in the allowed whitelist
+        // remove numeric literals first (including scientific notation) so 'e' inside 1e3 isn't considered an identifier
+        const numericPattern = /(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?/g;
+        const withoutNums = s.replace(numericPattern, ' ');
+        const allowed = new Set(['sin','cos','tan','asin','acos','atan','sqrt','ln','log','exp','abs','pi','e','pow']);
+        const ids = withoutNums.match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
+        for(const id of ids){
+            if(!allowed.has(id)) return NaN;
+        }
+
+        // build wrapper functions that respect degreeMode
+        const toRad = (x) => (degreeMode ? x * Math.PI / 180 : x);
+        const fromRad = (x) => (degreeMode ? x * 180 / Math.PI : x);
+        const sin = (x) => Math.sin(toRad(x));
+        const cos = (x) => Math.cos(toRad(x));
+        const tan = (x) => Math.tan(toRad(x));
+        const asin = (x) => fromRad(Math.asin(x));
+        const acos = (x) => fromRad(Math.acos(x));
+        const atan = (x) => fromRad(Math.atan(x));
+        const sqrt = (x) => Math.sqrt(x);
+        const ln = (x) => Math.log(x);
+        const log = (x) => Math.log10 ? Math.log10(x) : Math.log(x) / Math.LN10;
+        const exp = (x) => Math.exp(x);
+        const abs = (x) => Math.abs(x);
+        const pi = Math.PI;
+        const e = Math.E;
+
+        // allow only safe characters (digits, operators, parentheses, decimal, comma, identifiers handled above)
+        if(!/^[0-9eE+\-*/().,\s*A-Za-z_\*\*]+$/.test(s)) return NaN;
+
+        try{
+            // construct Function with allowed names as parameters to avoid exposing globals
+            const names = ['sin','cos','tan','asin','acos','atan','sqrt','ln','log','exp','abs','pi','e','pow'];
+            const fn = new Function(...names, 'return (' + s + ')');
+            const args = [sin, cos, tan, asin, acos, atan, sqrt, ln, log, exp, abs, pi, e, Math.pow];
+            const res = fn(...args);
+            if(typeof res === 'number' && Number.isFinite(res)) return res;
+            return NaN;
+        }catch(e){
+            return NaN;
+        }
+    }
+
     catSel.addEventListener('change', ()=>{
         populateFormulas();
         paramsContainer.innerHTML = '';
@@ -1029,9 +1084,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
             label.textContent = p.label;
             label.htmlFor = `param_${p.key}`;
             const input = document.createElement('input');
-            input.type = p.type || 'text';
+            // use text input so users can type expressions (2+3, 1e3, etc.) and use on-screen calculator
+            input.type = 'text';
             input.id = `param_${p.key}`;
             input.dataset.key = p.key;
+            input.dataset.origType = p.type || 'number';
             input.value = '';
             input.placeholder = 'Leave blank to compute';
             wrapper.appendChild(label);
@@ -1042,6 +1099,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const computeBtn = document.createElement('button');
         computeBtn.className = 'btn';
         computeBtn.textContent = 'Compute';
+        // safeEvalExpression is declared in the outer scope so calculator can reuse it
+
         computeBtn.addEventListener('click', ()=>{
             const inputs = paramsContainer.querySelectorAll('input');
             const vals = {};
@@ -1049,11 +1108,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
             inputs.forEach(inp=>{
                 const k = inp.dataset.key;
                 const raw = inp.value.trim();
-                const n = parseNumericInput(raw);
+                // try direct numeric parse first
+                let n = parseNumericInput(raw);
+                if(Number.isNaN(n)){
+                    // try evaluating an arithmetic expression
+                    n = safeEvalExpression(raw);
+                }
                 if(Number.isNaN(n)) parseError = true;
                 vals[k] = (n === undefined) ? undefined : n;
             });
-            if(parseError){ answerDiv.textContent = 'One or more inputs could not be parsed as numbers.'; return; }
+            if(parseError){ answerDiv.textContent = 'One or more inputs could not be parsed as numbers or expressions.'; return; }
             try{
                 const solved = formula.solve(vals);
                 const allKeys = new Set([...Object.keys(vals), ...Object.keys(solved)]);
@@ -1064,12 +1128,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
                     if(typeof rawVal === 'number'){
                         const dec = Number.parseFloat(rawVal.toFixed(6));
                         const sci = formatScientific(rawVal);
-                        pairs.push(`${k}: ${dec} (sci: ${sci.str})`);
+                        pairs.push(`${k}: ${dec}   =   ${sci.str}`);
                     }else{
                         pairs.push(`${k}: ${String(rawVal)}`);
                     }
                 });
-                answerDiv.textContent = pairs.join(' \u2022 ');
+                answerDiv.textContent = pairs.join('\n');
             }catch(e){ answerDiv.textContent = e.message || 'Error computing formula.'; console.error(e); }
         });
 
@@ -1088,4 +1152,131 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
 
     if(catSel.options.length>0){ catSel.selectedIndex = 0; populateFormulas(); }
+    // --- Calculator integration ---
+    const calcDisplay = document.getElementById('result'); // calculator display (id renamed)
+    const calcButtons = document.querySelectorAll('#calc_buttons button');
+    let focusedInput = null;
+    // degree/radian mode for trig functions (false = radians)
+    let degreeMode = false;
+    const degToggleEl = document.getElementById('deg_toggle');
+    if(degToggleEl){
+        // default label; the button in HTML may show something else
+        degToggleEl.textContent = 'RAD';
+        degToggleEl.addEventListener('click', (e)=>{
+            degreeMode = !degreeMode;
+            degToggleEl.textContent = degreeMode ? 'DEG' : 'RAD';
+            degToggleEl.classList.toggle('active', degreeMode);
+        });
+    }
+
+    // set focusedInput when any parameter input receives focus
+    paramsContainer.addEventListener('focusin', (e)=>{
+        const t = e.target;
+        if(t && t.tagName === 'INPUT' && t.dataset && t.dataset.key){
+            focusedInput = t;
+            // mirror current input into calc display for convenience
+            try{ calcDisplay.textContent = t.value || ''; }catch(e){}
+        }
+    });
+
+    // when inputs lose focus, keep the last focusedInput but don't clear it
+    paramsContainer.addEventListener('focusout', (e)=>{
+        // no-op; we keep focusedInput until another input is focused
+    });
+
+    function insertAtCursor(el, text){
+        if(!el) return;
+        const start = el.selectionStart || 0;
+        const end = el.selectionEnd || 0;
+        const value = el.value || '';
+        const newVal = value.substring(0, start) + text + value.substring(end);
+        el.value = newVal;
+        const pos = start + text.length;
+        el.setSelectionRange(pos, pos);
+    }
+
+    calcButtons.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+            const v = btn.dataset.value;
+            if(!v) return;
+            // handle DEG toggle button specially (don't insert text)
+            if(v === 'deg' || btn.id === 'deg_toggle'){
+                degreeMode = !degreeMode;
+                try{ btn.textContent = degreeMode ? 'DEG' : 'RAD'; }catch(e){}
+                btn.classList.toggle('active', degreeMode);
+                if(degToggleEl && degToggleEl !== btn) degToggleEl.textContent = degreeMode ? 'DEG' : 'RAD';
+                return;
+            }
+            if(v === 'AC'){
+                // clear
+                if(focusedInput){ focusedInput.value = ''; focusedInput.focus(); }
+                calcDisplay.textContent = '';
+                return;
+            }
+
+            if(v === '='){
+                // evaluate expression either into focused input or display
+                const exprSource = (focusedInput && focusedInput.value.trim() !== '') ? focusedInput.value : (calcDisplay.textContent || '');
+                const result = (function(){
+                    // try numeric parse first
+                    const n1 = parseNumericInput(exprSource);
+                    if(Number.isFinite(n1)) return n1;
+                    const n2 = (function(){
+                        try{ // reuse safe evaluator if available
+                            if(typeof safeEvalExpression === 'function') return safeEvalExpression(exprSource);
+                        }catch(e){}
+                        return NaN;
+                    })();
+                    if(Number.isFinite(n2)) return n2;
+                    return NaN;
+                })();
+                if(!Number.isFinite(result)){
+                    calcDisplay.textContent = 'Err';
+                }else{
+                    // write back to focused input if present else update display
+                    const pretty = (Math.abs(result) < 1e-6 || Math.abs(result) > 1e6) ? formatScientific(result).str : Number.parseFloat(result.toFixed(6)).toString();
+                    if(focusedInput){
+                        focusedInput.value = String(result);
+                        calcDisplay.textContent = String(result);
+                    }else{
+                        calcDisplay.textContent = pretty;
+                    }
+                }
+                return;
+            }
+
+            // for other buttons, append to focused input (if present) else to display
+            if(focusedInput){
+                // insert at cursor
+                insertAtCursor(focusedInput, v);
+                // mirror to display
+                calcDisplay.textContent = focusedInput.value;
+                focusedInput.focus();
+            }else{
+                calcDisplay.textContent = (calcDisplay.textContent || '') + v;
+            }
+        });
+    });
+
+    // keyboard shortcuts: Enter to evaluate, Escape to clear focused input / display
+    document.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter'){
+            e.preventDefault();
+            const exprSource = (focusedInput && focusedInput.value.trim() !== '') ? focusedInput.value : (calcDisplay.textContent || '');
+            const n1 = parseNumericInput(exprSource);
+            let result = NaN;
+            if(Number.isFinite(n1)) result = n1;
+            else result = safeEvalExpression(exprSource);
+            if(!Number.isFinite(result)){
+                calcDisplay.textContent = 'Err';
+            }else{
+                if(focusedInput){ focusedInput.value = String(result); calcDisplay.textContent = String(result); }
+                else calcDisplay.textContent = (Math.abs(result) < 1e-6 || Math.abs(result) > 1e6) ? formatScientific(result).str : Number.parseFloat(result.toFixed(6)).toString();
+            }
+        }
+        if(e.key === 'Escape'){
+            if(focusedInput){ focusedInput.value = ''; focusedInput.focus(); }
+            calcDisplay.textContent = '';
+        }
+    });
 });
