@@ -1280,3 +1280,4 @@ document.addEventListener('DOMContentLoaded', ()=>{
         }
     });
 });
+console.log('Formula Solver script loaded.');
