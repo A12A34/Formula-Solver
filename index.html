@@ -81,7 +81,18 @@
     <div id="ai-panel" class="ai-panel hidden" role="region" aria-label="AI Assistant">
         <div class="ai-header">
             <span class="ai-title">AI Assistant</span>
-            <button id="ai-close" class="ai-close-btn" aria-label="Close AI Assistant">&times;</button>
+            <div class="ai-header-actions">
+                <button id="ai-settings-toggle" class="ai-icon-btn" aria-label="Settings" title="API Key Settings">&#9881;</button>
+                <button id="ai-close" class="ai-close-btn" aria-label="Close AI Assistant">&times;</button>
+            </div>
+        </div>
+        <div id="ai-settings" class="ai-settings hidden">
+            <label for="ai-api-key">Gemini API Key <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">(Get free key)</a></label>
+            <div class="ai-key-row">
+                <input type="password" id="ai-api-key" class="ai-input" placeholder="Paste your Gemini API key..." autocomplete="off">
+                <button id="ai-save-key" class="btn ai-save-btn">Save</button>
+            </div>
+            <p id="ai-key-status" class="ai-key-status"></p>
         </div>
         <div id="ai-messages" class="ai-messages" aria-live="polite"></div>
         <form id="ai-form" class="ai-input-area">
