@@ -1279,5 +1279,373 @@ document.addEventListener('DOMContentLoaded', ()=>{
             calcDisplay.textContent = '';
         }
     });
+    // --- AI Assistant ---
+    const aiToggle = document.getElementById('ai-toggle');
+    const aiPanel = document.getElementById('ai-panel');
+    const aiClose = document.getElementById('ai-close');
+    const aiMessages = document.getElementById('ai-messages');
+    const aiForm = document.getElementById('ai-form');
+    const aiInput = document.getElementById('ai-input');
+
+    aiToggle.addEventListener('click', () => {
+        aiPanel.classList.toggle('hidden');
+        if (!aiPanel.classList.contains('hidden')) {
+            aiInput.focus();
+            if (aiMessages.children.length === 0) {
+                addAiMessage('assistant', 'Hello! I can help you solve math and science problems. Try asking something like:\n\n- "What is the area of a triangle with base 5 and height 10?"\n- "Convert 100 Fahrenheit to Celsius"\n- "Calculate force if mass is 10 kg and acceleration is 9.8"\n- "sqrt(144) + 3^2"\n- "What is 15% of 200?"');
+            }
+        }
+    });
+    aiClose.addEventListener('click', () => aiPanel.classList.add('hidden'));
+
+    function addAiMessage(role, text) {
+        const div = document.createElement('div');
+        div.className = `ai-msg ${role}`;
+        div.textContent = text;
+        aiMessages.appendChild(div);
+        aiMessages.scrollTop = aiMessages.scrollHeight;
+    }
+
+    // Build a searchable index from the formula catalog
+    const formulaIndex = [];
+    for (const [cat, formulas] of Object.entries(formulaCatalog)) {
+        for (const f of formulas) {
+            formulaIndex.push({ category: cat, formula: f });
+        }
+    }
+
+    // Keyword mappings to help match natural language to formula parameters
+    const paramAliases = {
+        'base': ['base', 'b'],
+        'height': ['height', 'h', 'altitude'],
+        'area': ['area', 'a'],
+        'radius': ['radius', 'r'],
+        'circumference': ['circumference', 'c', 'perimeter'],
+        'width': ['width', 'w'],
+        'length': ['length', 'l'],
+        'voltage': ['voltage', 'v', 'volt', 'volts'],
+        'current': ['current', 'i', 'amp', 'amps', 'ampere'],
+        'resistance': ['resistance', 'r', 'ohm', 'ohms'],
+        'power': ['power', 'p', 'watt', 'watts'],
+        'force': ['force', 'f', 'newton', 'newtons'],
+        'mass': ['mass', 'm', 'kg', 'weight'],
+        'acceleration': ['acceleration', 'a'],
+        'velocity': ['velocity', 'v', 'speed'],
+        'distance': ['distance', 'd'],
+        'time': ['time', 't'],
+        'momentum': ['momentum', 'p'],
+        'work': ['work', 'w', 'joule', 'joules'],
+        'pressure': ['pressure', 'p', 'pascal', 'pascals'],
+        'density': ['density', 'rho'],
+        'gravity': ['gravity', 'g'],
+        'frequency': ['frequency', 'f', 'freq', 'hz', 'hertz'],
+        'period': ['period', 't'],
+        'wavelength': ['wavelength', 'lambda'],
+        'temperature': ['temperature', 'temp'],
+        'celsius': ['celsius', 'c', 'centigrade'],
+        'fahrenheit': ['fahrenheit', 'f'],
+        'kinetic energy': ['kinetic energy', 'ke'],
+        'potential energy': ['potential energy', 'pe'],
+        'spring constant': ['spring constant', 'k'],
+        'displacement': ['displacement', 's', 'x'],
+        'focal length': ['focal length', 'f'],
+        'principal': ['principal', 'p'],
+        'rate': ['rate', 'r', 'interest rate'],
+        'amount': ['amount', 'a'],
+    };
+
+    // Topic keywords to narrow down category
+    const categoryKeywords = {
+        triangle: ['triangle', 'pythagorean', 'hypotenuse', 'sine rule', 'cosine rule', 'base.*height'],
+        rectangle: ['rectangle', 'rectangular', 'perimeter.*width', 'width.*height'],
+        circle: ['circle', 'circumference', 'radius', 'sector', 'arc'],
+        electrical: ['ohm', 'voltage', 'current', 'resistance', 'resistor', 'circuit', 'electrical', 'electric', 'power.*voltage', 'power.*current'],
+        mechanics: ['force', 'momentum', 'work.*force', 'pressure', 'density', 'acceleration', 'velocity', 'displacement', 'hooke', 'spring', 'centripetal', 'newton'],
+        energy: ['kinetic', 'potential energy', 'energy.*mass', 'energy.*velocity', 'energy.*height'],
+        waves: ['wave', 'wavelength', 'frequency.*wavelength'],
+        optics: ['lens', 'focal', 'optic', 'image distance', 'object distance'],
+        finance: ['interest', 'principal', 'finance', 'loan', 'investment'],
+        converter: ['convert', 'celsius', 'fahrenheit', 'kilometer', 'mile', 'degree.*radian', 'radian.*degree', 'kilogram', 'pound', 'liter', 'gallon', 'joule.*calorie', 'calorie.*joule', 'watt.*horsepower', 'horsepower.*watt', 'newton.*pound', 'cubic meter', 'cubic feet'],
+        misc: ['frequency', 'period', 'density.*mass.*volume'],
+        intersections: ['intersection', 'line.*line', 'line.*parabola', 'line.*circle', 'parabola.*parabola', 'circle.*circle'],
+    };
+
+    // Formula-specific keywords for more precise matching
+    const formulaKeywords = {
+        'triangle:area': ['area.*triangle', 'triangle.*area', 'base.*height'],
+        'triangle:pythagorean': ['pythagorean', 'hypotenuse', 'pythagoras'],
+        'triangle:sine rule': ['sine rule', 'law of sines', 'sin rule'],
+        'triangle:cosine rule': ['cosine rule', 'law of cosines', 'cos rule'],
+        'rectangle:area': ['area.*rectangle', 'rectangle.*area', 'width.*height.*area'],
+        'rectangle:perimeter': ['perimeter.*rectangle', 'rectangle.*perimeter'],
+        'circle:area': ['area.*circle', 'circle.*area', 'pi.*r.*squared', 'pi.*radius'],
+        'circle:circumference': ['circumference', 'circle.*perimeter'],
+        'circle:sector_area': ['sector', 'arc.*area'],
+        'electrical:ohms_law': ['ohm', 'v.*i.*r', 'voltage.*current.*resistance'],
+        'electrical:power': ['power.*voltage', 'power.*current', 'p.*v.*i'],
+        'mechanics:force': ['force.*mass.*acceleration', 'f.*m.*a', 'newton.*second'],
+        'mechanics:momentum': ['momentum'],
+        'mechanics:work': ['work.*force.*distance'],
+        'mechanics:pressure': ['pressure.*force.*area'],
+        'mechanics:density': ['density.*mass.*volume'],
+        'mechanics:acceleration': ['acceleration.*velocity.*time', 'delta.*v.*delta.*t'],
+        'mechanics:velocity': ['velocity.*distance.*time', 'speed.*distance.*time'],
+        'mechanics:displacement': ['displacement.*initial.*velocity', 's.*u.*a.*t'],
+        'mechanics:hookes_law': ['hooke', 'spring.*constant', 'spring.*force'],
+        'mechanics:centripetal_force': ['centripetal'],
+        'energy:kinetic': ['kinetic energy', 'kinetic', 'ke.*mass.*velocity'],
+        'energy:potential': ['potential energy', 'pe.*mass.*height', 'mgh'],
+        'waves:wave_speed': ['wave speed', 'wave.*frequency.*wavelength'],
+        'optics:lens': ['lens', 'focal length', 'image distance', 'object distance'],
+        'finance:simple_interest': ['simple interest', 'interest.*principal.*rate.*time'],
+        'converter:celsius_fahrenheit': ['celsius.*fahrenheit', 'fahrenheit.*celsius', 'temperature.*convert'],
+        'converter:km_miles': ['kilometer.*mile', 'mile.*kilometer', 'km.*mile'],
+        'converter:degrees_radians': ['degree.*radian', 'radian.*degree'],
+        'converter:kg_pounds': ['kilogram.*pound', 'pound.*kilogram', 'kg.*lb', 'lb.*kg'],
+        'converter:liters_gallons': ['liter.*gallon', 'gallon.*liter'],
+        'converter:newtons_lbf': ['newton.*pound', 'pound.*force.*newton'],
+        'converter:watts_hp': ['watt.*horsepower', 'horsepower.*watt', 'hp.*watt'],
+        'converter:joules_calories': ['joule.*calorie', 'calorie.*joule'],
+    };
+
+    function extractNumbers(text) {
+        const numbers = [];
+        const pattern = /(?:^|[\s=:,])([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)/g;
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+            numbers.push(parseFloat(match[1]));
+        }
+        return numbers;
+    }
+
+    function extractNamedValues(text) {
+        const result = {};
+        // Match patterns like "base is 5", "height = 10", "mass of 20", "r = 3"
+        const patterns = [
+            /(\w[\w\s]*?)\s*(?:is|=|equals|of)\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)/gi,
+            /(\w[\w\s]*?)\s*:\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)/gi,
+            /([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s*(?:kg|m|s|n|w|v|a|hz|pa|j|cal|lbs?|ft|gal|hp|ohm)/gi,
+        ];
+        for (const pat of patterns.slice(0, 2)) {
+            let m;
+            while ((m = pat.exec(text)) !== null) {
+                result[m[1].trim().toLowerCase()] = parseFloat(m[2]);
+            }
+        }
+        return result;
+    }
+
+    function matchFormula(text) {
+        const lower = text.toLowerCase();
+        let bestMatch = null;
+        let bestScore = 0;
+
+        // First try formula-specific keywords
+        for (const [key, keywords] of Object.entries(formulaKeywords)) {
+            for (const kw of keywords) {
+                const regex = new RegExp(kw, 'i');
+                if (regex.test(lower)) {
+                    const [cat, fid] = key.split(':');
+                    const formula = (formulaCatalog[cat] || []).find(f => f.id === fid);
+                    if (formula) {
+                        const score = kw.length + 10;
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMatch = { category: cat, formula };
+                        }
+                    }
+                }
+            }
+        }
+
+        if (bestMatch) return bestMatch;
+
+        // Fall back to category keywords
+        for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+            for (const kw of keywords) {
+                const regex = new RegExp(kw, 'i');
+                if (regex.test(lower)) {
+                    const formulas = formulaCatalog[cat];
+                    if (formulas && formulas.length > 0) {
+                        return { category: cat, formula: formulas[0] };
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function mapValuesToParams(formula, text) {
+        const named = extractNamedValues(text);
+        const vals = {};
+        const lower = text.toLowerCase();
+
+        for (const param of formula.params) {
+            const key = param.key;
+            const label = param.label.toLowerCase();
+
+            // Check named values
+            for (const [name, value] of Object.entries(named)) {
+                if (label.includes(name) || key.toLowerCase() === name || name.includes(key.toLowerCase())) {
+                    vals[key] = value;
+                    break;
+                }
+                // Check aliases
+                for (const [, aliases] of Object.entries(paramAliases)) {
+                    if (aliases.some(a => a === name || name.includes(a))) {
+                        if (label.includes(name) || aliases.some(a => label.includes(a) || key.toLowerCase() === a)) {
+                            vals[key] = value;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // If we couldn't map named values, try positional extraction
+        if (Object.keys(vals).length === 0) {
+            const numbers = extractNumbers(text);
+            const fillableParams = formula.params.filter(p => p.type === 'number');
+            // If we have the right number of values for all params minus one (to solve for)
+            for (let i = 0; i < Math.min(numbers.length, fillableParams.length); i++) {
+                vals[fillableParams[i].key] = numbers[i];
+            }
+        }
+
+        return vals;
+    }
+
+    function handlePercentage(text) {
+        const lower = text.toLowerCase();
+        // "what is X% of Y"
+        let m = lower.match(/(\d+\.?\d*)\s*%\s*(?:of)\s*(\d+\.?\d*)/);
+        if (m) {
+            const pct = parseFloat(m[1]);
+            const total = parseFloat(m[2]);
+            const result = (pct / 100) * total;
+            return `${pct}% of ${total} = ${result}`;
+        }
+        // "X percent of Y"
+        m = lower.match(/(\d+\.?\d*)\s*percent\s*(?:of)\s*(\d+\.?\d*)/);
+        if (m) {
+            const pct = parseFloat(m[1]);
+            const total = parseFloat(m[2]);
+            const result = (pct / 100) * total;
+            return `${pct}% of ${total} = ${result}`;
+        }
+        return null;
+    }
+
+    function handleDirectExpression(text) {
+        // Try evaluating the input as a math expression
+        const cleaned = text.replace(/^(?:what is|calculate|compute|evaluate|solve|find)\s*/i, '').trim();
+        if (!cleaned) return null;
+        const result = safeEvalExpression(cleaned);
+        if (Number.isFinite(result)) {
+            const sci = formatScientific(result);
+            if (Math.abs(result) > 1e6 || (Math.abs(result) < 1e-3 && result !== 0)) {
+                return `${cleaned} = ${result}\n(Scientific notation: ${sci.str})`;
+            }
+            return `${cleaned} = ${result}`;
+        }
+        return null;
+    }
+
+    function processAiQuery(text) {
+        const lower = text.toLowerCase().trim();
+
+        // Handle greetings
+        if (/^(hi|hello|hey|greetings|good\s*(morning|afternoon|evening))[\s!.]*$/i.test(lower)) {
+            return 'Hello! How can I help you with math or science today? You can ask me to solve formulas, evaluate expressions, or convert units.';
+        }
+
+        // Handle help request
+        if (/^(help|what can you do|how do you work)[\s?]*$/i.test(lower)) {
+            return 'I can help you with:\n\n1. Solve formulas (triangles, circles, physics, etc.)\n2. Evaluate math expressions (e.g., "sqrt(144) + 3^2")\n3. Convert units (e.g., "convert 100 fahrenheit to celsius")\n4. Calculate percentages (e.g., "what is 15% of 200")\n\nJust describe your problem naturally!';
+        }
+
+        // Try percentage
+        const pctResult = handlePercentage(text);
+        if (pctResult) return pctResult;
+
+        // Try formula matching
+        const match = matchFormula(text);
+        if (match) {
+            const { category, formula } = match;
+            const vals = mapValuesToParams(formula, text);
+
+            // Check if we have enough values
+            const filledCount = Object.values(vals).filter(v => v !== undefined && Number.isFinite(v)).length;
+            if (filledCount === 0) {
+                return `I found the formula: ${formula.name}\nCategory: ${category}\n\nBut I couldn't extract values from your question. Please provide values like:\n"${formula.params.map(p => p.label.split('(')[0].trim()).join(', ')}"`;
+            }
+
+            try {
+                const solved = formula.solve(vals);
+                const lines = [`Formula: ${formula.name}`, `Category: ${category}`, ''];
+
+                // Show input values
+                lines.push('Given:');
+                for (const param of formula.params) {
+                    if (vals[param.key] !== undefined && Number.isFinite(vals[param.key])) {
+                        lines.push(`  ${param.label} = ${vals[param.key]}`);
+                    }
+                }
+                lines.push('');
+
+                // Show results
+                lines.push('Result:');
+                for (const [key, value] of Object.entries(solved)) {
+                    if (typeof value === 'number') {
+                        const paramDef = formula.params.find(p => p.key === key);
+                        const label = paramDef ? paramDef.label : key;
+                        const dec = Number.parseFloat(value.toFixed(6));
+                        const sci = formatScientific(value);
+                        if (Math.abs(value) > 1e6 || (Math.abs(value) < 1e-3 && value !== 0)) {
+                            lines.push(`  ${label} = ${dec}  (${sci.str})`);
+                        } else {
+                            lines.push(`  ${label} = ${dec}`);
+                        }
+                    }
+                }
+
+                return lines.join('\n');
+            } catch (e) {
+                return `Formula: ${formula.name}\n\nError: ${e.message}\n\nPlease make sure you provide enough values. This formula needs: ${formula.params.map(p => p.label).join(', ')}`;
+            }
+        }
+
+        // Try direct math expression
+        const exprResult = handleDirectExpression(text);
+        if (exprResult) return exprResult;
+
+        // Fallback
+        return 'I couldn\'t understand that question. Try asking something like:\n\n- "Area of triangle with base 5 and height 10"\n- "Convert 100 fahrenheit to celsius"\n- "Force if mass is 10 and acceleration is 9.8"\n- "sqrt(144) + 3^2"\n- "What is 15% of 200?"';
+    }
+
+    aiForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = aiInput.value.trim();
+        if (!text) return;
+
+        addAiMessage('user', text);
+        aiInput.value = '';
+
+        // Small delay to feel more natural
+        setTimeout(() => {
+            const response = processAiQuery(text);
+            addAiMessage('assistant', response);
+        }, 150);
+    });
+
+    // Prevent Enter in AI input from triggering the global keydown handler
+    aiInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') e.stopPropagation();
+        if (e.key === 'Escape') {
+            e.stopPropagation();
+            aiPanel.classList.add('hidden');
+        }
+    });
 });
 console.log('Formula Solver script loaded.');
